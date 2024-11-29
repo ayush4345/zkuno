@@ -32,6 +32,9 @@ const About = () => (
                 alt="arrow down"
                 className="w-[18px] h-[28px] object-contain mt-[28px]"
             />
+
+            <TypingText title="Partners" textStyles="text-center font-bold mt-5" />
+            <motion.img src="/diamante-logo.jpg" className='max-w-64'/>
         </motion.div>
     </section>
 );
