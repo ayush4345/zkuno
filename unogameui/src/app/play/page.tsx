@@ -1,6 +1,13 @@
 'use client'
 
 import StyledButton from '@/components/styled-button'
+
+// Extend the Window interface to include the diam property
+declare global {
+    interface Window {
+        diam?: any;
+    }
+}
 import { useRef, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation';
 import TokenInfoBar from '@/components/TokenBar'
@@ -8,17 +15,12 @@ import { UnoGameContract } from '@/lib/types';
 import { getContract, getContractNew } from '@/lib/web3';
 import io, { Socket } from "socket.io-client";
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useAccount } from 'wagmi';
-import { usePrivy } from '@privy-io/react-auth';
-import { useWriteContract } from 'wagmi';
 import UNOContractJson from '@/constants/UnoGame.json'
 
 const CONNECTION = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'https://unosocket-6k6gsdlfoa-el.a.run.app/';
 
 export default function PlayGame() {
 
-    const { address, status } = useAccount()
-    const { ready, user, authenticated, login, connectWallet, logout, linkWallet } = usePrivy();
     const [open, setOpen] = useState(false)
     const [createLoading, setCreateLoading] = useState(false)
     const [joinLoading, setJoinLoading] = useState(false)
@@ -28,6 +30,36 @@ export default function PlayGame() {
     const router = useRouter()
 
     const socket = useRef<Socket | null>(null);
+
+    async function connectWallet() {
+        if (window.diam) {
+            try {
+                const result = await window.diam.connect();
+                const diamPublicKey = result.message[0].diamPublicKey;
+                console.log(`User active public key is: ${diamPublicKey}`);
+
+                if (!diamPublicKey) {
+                    throw new Error('Failed to connect wallet');
+                }
+
+                localStorage.setItem('publicKey', diamPublicKey);
+                setAccount(diamPublicKey);
+
+                return diamPublicKey;
+            } catch (error) {
+                console.error(`Error: ${error}`);
+                throw error;
+            }
+        } else {
+            // document.getElementById('error').innerText = 'Wallet extension not found';
+            // document.getElementById('error').style.display = 'block';
+            // document.getElementById('notification').style.display = 'none';
+            // setTimeout(() => {
+            //     window.location.href = 'https://chromewebstore.google.com/detail/diam-wallet/oakkognifoojdbfjaccegangippipdmn?hl=en';
+            // }, 1000);
+            // throw new Error('Wallet extension not found');
+        }
+    }
 
     const fetchGames = async () => {
         if (contract) {
@@ -129,11 +161,10 @@ export default function PlayGame() {
     }
 
     const setup = async () => {
-        if (address) {
+        if (account) {
             try {
                 const { contract } = await getContractNew()
                 setContract(contract)
-                setAccount(address)
             } catch (error) {
                 console.error('Failed to setup contract:', error)
             }
@@ -141,13 +172,12 @@ export default function PlayGame() {
     }
 
     useEffect(() => {
-        if (status === 'connected' && address) {
+        if (account) {
             setup()
         } else {
-            setAccount(null)
             setContract(null)
         }
-    }, [status, address, authenticated])
+    }, [account])
 
     return (
         <div className='relative'>
@@ -158,11 +188,11 @@ export default function PlayGame() {
                     <div className='absolute -left-8 right-8 -top-14 bottom-14 bg-no-repeat bg-[url("/card-0.png")] animate-pulse'></div>
                 </div>
                 <div className='absolute top-0 md:left-1/2 md:right-0 bottom-0 w-[calc(100%-2rem)] md:w-auto md:pr-20 py-12'>
-                    {!address ?
+                    {!account ?
                         <div className='relative text-center flex justify-center'>
                             <img src='/login-button-bg.png' />
                             <div className='left-1/2 -translate-x-1/2 absolute bottom-4'>
-                                <StyledButton disabled={!ready} data-testid="connect" roundedStyle='rounded-full' className='bg-[#ff9000] text-2xl' onClick={login}>{authenticated ? `Connected Wallet` : `Connect Wallet`}</StyledButton>
+                                <StyledButton data-testid="connect" roundedStyle='rounded-full' className='bg-[#ff9000] text-2xl' onClick={connectWallet}>{account ? `Connected Wallet` : `Connect Wallet`}</StyledButton>
                             </div>
                         </div>
                         : <>
